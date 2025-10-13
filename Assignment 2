@@ -1,0 +1,99 @@
+%John Walsh. AMS 595 Fall 2025 Programming.  Assignment #2 MATLAB
+
+%Project Description:  The mathematician Benoit Mandelbrot invented the field of fractal geometry after considering the coastline paradox.
+If you try to measure the coast of Britain, the finer the measurement you make, the longer the coast becomes. You
+end up trailing around every grain of sand.
+In this assignment, you’ll approximate the rough circumference of a Mandelbrot Set fractal using function approximation. You’ll proceed as follows:
+• write a function computing the fractal
+• use the bisection algorithm to approximate the boundary of the fractal
+• use polynomial function approximation to find boundary as a function
+• integrate the boundary curve to find its length
+
+% Main Script
+%Fractal Function.  This function calculates the number of iterations until a point c in the complex plane either diverges (i.e., |z| > 2) or converges within the maximum number of iterations (100 in this case).
+function it = fractal(c)
+    % Maximum number of iterations
+    max_iter = 100;
+    z = 0; % Starting point for z
+    for it = 1:max_iter
+        z = z^2 + c; % Mandelbrot iteration
+        if abs(z) > 2 % Diverges if |z| > 2
+            return
+        end
+    end
+    it = max_iter; % Return max iterations if not diverged
+end
+
+%The bisection function is used to find where the sign of an indicator function changes, indicating the boundary of the Mandelbrot set. This uses binary search to find a point on the fractal boundary.
+function m = bisection(fn_f, s, e)
+    % Bisection method to find where the sign of the indicator function changes
+    while (e - s) > 1e-6 % Precision limit
+        m = (s + e) / 2;
+        if fn_f(m) > 0
+            e = m; % Move the end bound
+        else
+            s = m; % Move the start bound
+        end
+    end
+    m = (s + e) / 2; % Return the midpoint as the boundary point
+end
+
+% Define Indicator Function. This function creates an indicator function for a given vertical line x, which is used in the bisection method to find the boundary.
+function fn = indicator_fn_at_x(x)
+    % Returns an indicator function along a vertical line at a given x
+    fn = @(y) (fractal(x + 1i * y) > 0) * 2 - 1; % Positive for outside, negative for inside
+end
+
+% Polynominal fitting.  Once you find the boundary points of the Mandelbrot set, you can fit a polynomial to these points. A degree 15 polynomial is chosen as per the problem statement.
+function p = polyfit_boundary(x, y)
+    % Fit a polynomial of order 15 to the boundary points
+    p = polyfit(x, y, 15);
+end
+
+% Polynomial Length Calculation.  Once the polynomial is fitted, we can calculate the length of the boundary curve using numerical integration.
+function l = poly_len(p, s, e)
+    % Define the derivative of the polynomial
+    dp = polyder(p); % Derivative of the polynomial
+    
+    % Define the function for the curve length integrand
+    ds = @(x) sqrt(1 + polyval(dp, x).^2);
+    
+    % Use MATLAB's integral function to compute the length of the curve
+    l = integral(ds, s, e);
+end
+
+
+
+
+% Define the range of x values for the boundary search
+x_vals = linspace(-2, 1, 1000);
+y_vals = zeros(size(x_vals)); % Initialize y values for boundary points
+
+
+
+% Find the boundary points using bisection method
+for i = 1:length(x_vals)
+    fn = indicator_fn_at_x(x_vals(i)); % Indicator function for x(i)
+    y_vals(i) = bisection(fn, -2, 2); % Find the corresponding y value of the boundary
+end
+
+% Fit a polynomial to the boundary data
+p = polyfit_boundary(x_vals, y_vals);
+
+% Compute the length of the boundary using numerical integration
+boundary_length = poly_len(p, -2, 1);
+
+% Display results
+fprintf('The length of the fractal boundary is approximately: %.4f\n', boundary_length);
+
+% Plot the boundary and the fitted polynomial
+figure;
+plot(x_vals, y_vals, 'b', 'LineWidth', 1.5);
+hold on;
+y_poly = polyval(p, x_vals);
+plot(x_vals, y_poly, 'r--', 'LineWidth', 1.5);
+legend('Mandelbrot Boundary', 'Fitted Polynomial');
+xlabel('x');
+ylabel('y');
+title('Mandelbrot Set Boundary and Polynomial Approximation');
+grid on;
